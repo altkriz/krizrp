@@ -30,7 +30,7 @@ Whether you want to explore community characters from **Chub.ai**, import standa
 ## ✨ Key Features
 
 ### 🔗 Direct Chub.ai Character URL Import
-- **Instant 1-Click Import**: Paste any Chub link (e.g., `https://chub.ai/characters/Anonymous/ayesha-khan-93a4601a56b0` or `characterhub.org/...`).
+- **Instant 1-Click Import**: Paste any Chub link (e.g., `https://chub.ai/characters/Anonymous/anonymouschar` or `characterhub.org/...`).
 - **Resilient Multi-Gateway Fallback**: Queries `gateway.chub.ai`, `chub.ai`, and `ro.chub.ai` automatically to resolve cards even during cloud outages.
 - **Full Card Parsing**: Downloads character definition, scenario, greetings, system prompts, mes_examples, and high-res avatar artwork directly into your local database.
 
@@ -74,7 +74,7 @@ Connect to whatever backend powers your roleplay:
 Importing any character from Chub takes just seconds:
 
 ```
-https://chub.ai/characters/Anonymous/ayesha-khan-93a4601a56b0
+https://chub.ai/characters/Anonymous/anonymouschar
 ```
 
 1. Tap the **Link / Import URL** button on the home screen banner or Top Bar.
