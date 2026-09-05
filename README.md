@@ -1,138 +1,150 @@
-# ChatterUI - A simple app for LLMs
+# 🌌 KrizRP
 
-ChatterUI is a native mobile frontend for LLMs.
+<div align="center">
 
-Run LLMs on device or connect to various commercial or open source APIs. ChatterUI aims to provide a mobile-friendly interface with fine-grained control over chat structuring.
+![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20%26%20M3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+[![Author](https://img.shields.io/badge/Author-altkriz-purple?style=for-the-badge&logo=github)](https://github.com/altkriz)
+[![Repository](https://img.shields.io/badge/GitHub-altkriz%2Fkrizrp-blue?style=for-the-badge&logo=github)](https://github.com/altkriz/krizrp)
 
-If you like the app, feel free support me here:
+### *The next-generation, privacy-focused native Android client for AI Roleplay, Character Chat, and Tavern V2 Cards.*
 
-<a href='https://ko-fi.com/W7W7X8T7W' target='_blank'><img height='42' style='border:0px;height:42px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+**Built with passion by [@altkriz](https://github.com/altkriz)**
 
-<div>
-Chat With Characters or Assistants
-<br/>
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/characterlist.png" width="150" > 
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/chat.png" width="150" > 
-<br/>
-Use on-device Models or APIs
-<br/>
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/models.png" width="150" > 
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/api.png" width="150" > 
-<br/>
-Modify And Customize
-<br/>
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/charactereditor.png" width="150" > 
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/settings.png" width="150" >
-<br/>
-Personalize Yourself
-<br/>
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/usereditor.png" width="150" > 
-<img src ="https://github.com/Vali-98/ChatterUI/blob/master/assets/screenshots/userlist.png" width="150" >
+[Features](#-key-features) • [Chub URL Import](#-chub-url-import) • [Providers](#-supported-ai-backends) • [Architecture](#-architecture) • [Getting Started](#-getting-started) • [Author & Socials](#-author--socials)
+
+---
+
 </div>
 
-## Features:
+## 🌟 Overview
 
--   Run LLMs on-device in Local Mode
--   Connect to various APIs in Remote Mode
--   Chat with characters. (Supports the Character Card v2 specification.)
--   Create and manage multiple chats per character.
--   Customize Sampler fields and Instruct formatting
--   Integrates with your device’s text-to-speech (TTS) engine
+**KrizRP** is an ultra-fast, modern, native Android application engineered for AI roleplayers, creative writers, and conversational AI enthusiasts. Designed from the ground up using **Kotlin**, **Jetpack Compose**, and **Material Design 3**, KrizRP connects to your favorite local or cloud language models while maintaining 100% offline data sovereignty.
 
-<br/>
+Whether you want to explore community characters from **Chub.ai**, import standard **Tavern V2 PNG character cards**, or create your own detailed personas with custom system prompts, KrizRP delivers a seamless, beautiful, and feature-packed experience.
 
-# Usage
+---
 
-Download and install latest APK from the [releases](https://github.com/Vali-98/ChatterUI/releases/latest) page.
+## ✨ Key Features
 
-<i>iOS is Currently unavailable due to lacking iOS hardware for development</i>
+### 🔗 Direct Chub.ai Character URL Import
+- **Instant 1-Click Import**: Paste any Chub link (e.g., `https://chub.ai/characters/Anonymous/ayesha-khan-93a4601a56b0` or `characterhub.org/...`).
+- **Resilient Multi-Gateway Fallback**: Queries `gateway.chub.ai`, `chub.ai`, and `ro.chub.ai` automatically to resolve cards even during cloud outages.
+- **Full Card Parsing**: Downloads character definition, scenario, greetings, system prompts, mes_examples, and high-res avatar artwork directly into your local database.
 
-## Local Mode
+### 🎨 Integrated Chub.ai Gallery & Author Following
+- **Discover & Trending**: Browse trending community characters directly in-app.
+- **Author Profiles & Favorites**: Follow your favorite bot creators (`@username`) and filter characters created by them.
+- **Content Filter**: Easy NSFW toggle to curate your browsing experience.
 
-ChatterUI uses a [llama.cpp](https://github.com/ggerganov/llama.cpp) under the hood to run gguf files on device. A custom adapter is used to integrate with react-native: [cui-llama.rn](https://github.com/Vali-98/cui-llama.rn)
+### 🃏 Tavern V2 & Character Card Specification
+- **Lossless PNG & JSON Support**: Import and export Character Card V2 PNGs with embedded `chara` base64 chunk metadata.
+- **Deep Character Editor**: Customize Name, Personality, Scenario, First Message, Example Dialogue (`<START>`), System Prompt, and Post-History Instructions.
+- **Alternate Greetings & Tagging**: Organize your roster with custom genre chips and search across your library instantly.
 
-To use on-device inferencing, first enable Local Mode, then go to Models > Import Model / Use External Model and choose a gguf model that can fit on your device's memory. The importing functions are as follows:
+### 💬 Immersive Chat & Roleplay Engine
+- **Rich Markdown & Dialogue Formatting**: Elegantly formatted speech quotes, narrative actions, and syntax-highlighted code blocks.
+- **Message Branching & Swipes**: Swipe or regenerate AI responses, edit prior messages, and delete unwanted branches.
+- **Multiple Personas**: Create custom user personas (name, avatar, description) and swap between them in any conversation.
 
--   Import Model: Copies the model file into ChatterUI, potentially speeding up startup time.
--   Use External Model: Uses a model from your device storage directly, removing the need to copy large files into ChatterUI but with a slight delay in load times.
+### 🔌 Multi-Provider AI Engine (Local & Cloud)
+Connect to whatever backend powers your roleplay:
+- **Google Gemini**: Gemini 1.5 Flash, 1.5 Pro, 2.0 Flash (with native streaming support)
+- **OpenAI**: GPT-4o, GPT-4o-mini, GPT-4-turbo
+- **OpenRouter**: Access hundreds of open-source and proprietary models (Claude, Llama 3, Mistral, Command R+, etc.)
+- **KoboldCPP & Ollama**: Self-hosted on-device or LAN local inference
+- **Text-Generation-WebUI & Oobabooga**: Full API compatibility
+- **Generic OpenAI-Compatible Endpoints**: Groq, Together AI, Mistral, DeepSeek, Perplexity, or custom reverse proxies
 
-After that, you can load the model and begin chatting!
+### 🎛️ Precision Sampler & Instruct Control
+- Fine-tune Temperature, Top-P, Top-K, Repetition Penalty, Max Tokens, Frequency & Presence Penalty.
+- Configurable Stop Sequences and Chat Instruct templates (Llama-3, ChatML, Alpaca, Mistral).
 
-_Note: For devices with Snapdragon 8 Gen 1 and above or Exynos 2200+, it is recommended to use the Q4_0 quantization for optimized performance._
+### 🔒 100% Privacy & Local Storage
+- Local **Room SQLite** persistence.
+- Zero analytics, zero telemetry tracking.
+- Your keys and chats never touch third-party servers outside of your chosen AI provider.
 
-## Remote Mode
+---
 
-Remote Mode allows you to connect to a few common APIs from both commercial and open source projects.
+## 🚀 Chub URL Import
 
-### Open Source Backends:
-
--   koboldcpp
--   text-generation-webui
--   Ollama
-
-### Dedicated API:
-
--   OpenAI
--   Claude _(with ability to use a proxy)_
--   Cohere
--   Open Router
--   Mancer
--   AI Horde
-
-### Generic backends:
-
--   Generic Text Completions
--   Generic Chat Completions
-
-_These should be compliant with any Text Completion/Chat Completion backends such as Groq or Infermatic._
-
-### Custom APIs:
-
-Is your API provider missing? ChatterUI allows you to define APIs using its template system.
-
-Read more about it [here!](https://github.com/Vali-98/ChatterUI/discussions/126)
-
-## Development
-
-### Android
-
-To run a development build, follow these simple steps:
-
--   Install any Java 17/21 SDK of your choosing
--   Install `android-sdk` via `Android Studio`
--   Clone the repo:
+Importing any character from Chub takes just seconds:
 
 ```
-git clone https://github.com/Vali-98/ChatterUI.git
+https://chub.ai/characters/Anonymous/ayesha-khan-93a4601a56b0
 ```
 
--   Install dependencies via npm and run via Expo:
+1. Tap the **Link / Import URL** button on the home screen banner or Top Bar.
+2. Paste the link or tap **Paste from Clipboard**.
+3. Tap **Import Character** — KrizRP automatically fetches metadata, resolves the card payload, caches the avatar, and opens your chat ready to play!
 
+---
+
+## 🤖 Supported AI Backends
+
+| Provider | Supported Models | Streaming | Connection Mode |
+| :--- | :--- | :---: | :--- |
+| **Google Gemini** | `gemini-1.5-flash`, `gemini-1.5-pro`, `gemini-2.0-flash` | ✅ | Cloud API Key |
+| **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo` | ✅ | Cloud API Key |
+| **OpenRouter** | Any OpenRouter model ID (`meta-llama/llama-3.3-70b-instruct`, etc.) | ✅ | Cloud API Key |
+| **KoboldCPP** | Any loaded GGUF model | ✅ | Local / LAN URL |
+| **Ollama** | `llama3`, `mistral`, `gemma2`, `qwen2.5`, etc. | ✅ | Local / LAN URL |
+| **Text-Gen WebUI** | Any model loaded in oobabooga | ✅ | Local / LAN URL |
+| **Custom OpenAI API** | Groq, DeepSeek, Mistral, Together, vLLM, LM Studio | ✅ | Custom Base URL + Key |
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+KrizRP is built with modern Android engineering standards:
+
+- **Kotlin 2.0+** with Coroutines & Flows
+- **Jetpack Compose** & **Material Design 3 (M3)** with dynamic colors and fluid animations
+- **Room Database** for high-performance offline persistence
+- **OkHttp 4** & **Retrofit 2** with real-time SSE (Server-Sent Events) streaming
+- **Coil 3** for optimized, asynchronous image rendering
+- **Kotlinx Serialization** for type-safe JSON decoding and Tavern card payloads
+- **MVVM Architecture** with unidirectional data flow and clean separation of concerns
+
+---
+
+## 💻 Getting Started
+
+### Prerequisites
+- Android Studio Ladybug (or newer)
+- JDK 17 or JDK 21
+- Android SDK 35 (minSdk 26 - Android 8.0+)
+
+### Building from Source
+
+```bash
+# 1. Clone repository
+git clone https://github.com/altkriz/krizrp.git
+cd krizrp
+
+# 2. Build debug APK using Gradle
+gradle assembleDebug
+
+# 3. The APK will be generated at:
+# app/build/outputs/apk/debug/app-debug.apk
 ```
-npm install
-npx expo run:android
-```
 
-#### Building an APK
+---
 
-Requires Node.js, Java 17/21 SDK and Android SDK. Expo uses EAS to build apps which requires a Linux environment.
+## 👤 Author & Socials
 
-1. Clone the repo.
-2. Rename the `eas.json.example` to `eas.json`.
-3. Modify `"ANDROID_SDK_ROOT"` to the directory of your Android SDK
-4. Run the following:
+Created with ❤️ by **altkriz**
 
-```
-npm install
-eas build --platform android --local
-```
+- **GitHub Profile**: [@altkriz](https://github.com/altkriz)
+- **Project Repository**: [altkriz/krizrp](https://github.com/altkriz/krizrp)
 
-### IOS
+If you enjoy using **KrizRP**, please consider giving the repository a ⭐ **Star** on GitHub and sharing it with the roleplay community!
 
-Currently in development
+---
 
-## Acknowledgement
+## 📄 License
 
--   [llama.cpp](https://github.com/ggerganov/llama.cpp) - the underlying engine to run LLMs
--   [llama.rn](https://github.com/mybigday/llama.rn) - the original react-native llama.cpp adapter
-
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

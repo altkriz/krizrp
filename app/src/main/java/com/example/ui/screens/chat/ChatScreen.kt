@@ -222,10 +222,17 @@ fun ChatScreen(
                         }
                     )
                 } else {
+                    val isCurrentStreaming = state.isGenerating && (item.message.id == state.streamingMessageId || item == state.messages.lastOrNull())
+                    val displayContent = if (state.isGenerating && item.message.id == state.streamingMessageId) {
+                        state.streamingText
+                    } else {
+                        item.currentContent
+                    }
                     CharacterMessageBubble(
                         item = item,
+                        displayContent = displayContent,
                         character = state.character,
-                        isStreaming = state.isGenerating && item == state.messages.lastOrNull(),
+                        isStreaming = isCurrentStreaming,
                         onPreviousSwipe = {
                             viewModel.switchSwipe(item, item.message.activeSwipeIndex - 1)
                         },
@@ -418,6 +425,7 @@ fun ChatScreen(
 @Composable
 fun CharacterMessageBubble(
     item: ChatMessageWithSwipes,
+    displayContent: String = item.currentContent,
     character: com.example.data.model.CharacterEntity?,
     isStreaming: Boolean,
     onPreviousSwipe: () -> Unit,
@@ -460,7 +468,7 @@ fun CharacterMessageBubble(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    val content = item.currentContent
+                    val content = displayContent
                     if (content.isBlank() && isStreaming) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)

@@ -8,8 +8,8 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
-    onPrimary = DarkBackground,
-    primaryContainer = AccentViolet,
+    onPrimary = androidx.compose.ui.graphics.Color.White,
+    primaryContainer = DarkPrimaryVariant,
     onPrimaryContainer = DarkTextPrimary,
     secondary = DarkSecondary,
     onSecondary = DarkBackground,
@@ -21,22 +21,29 @@ private val DarkColorScheme = darkColorScheme(
     surface = DarkSurface,
     onSurface = DarkTextPrimary,
     surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkTextSecondary
+    onSurfaceVariant = DarkTextSecondary,
+    outline = DarkBorder,
+    outlineVariant = DarkBorder
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = LightPrimary,
-    onPrimary = LightSurface,
+    onPrimary = androidx.compose.ui.graphics.Color.White,
     primaryContainer = LightSurfaceVariant,
     onPrimaryContainer = LightPrimary,
     secondary = LightSecondary,
-    onSecondary = LightSurface,
+    onSecondary = androidx.compose.ui.graphics.Color.White,
+    secondaryContainer = LightSurfaceVariant,
+    onSecondaryContainer = LightTextPrimary,
+    tertiary = LightTertiary,
     background = LightBackground,
     onBackground = LightTextPrimary,
     surface = LightSurface,
     onSurface = LightTextPrimary,
     surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightTextSecondary
+    onSurfaceVariant = LightTextSecondary,
+    outline = LightBorder,
+    outlineVariant = LightBorder
 )
 
 @Composable

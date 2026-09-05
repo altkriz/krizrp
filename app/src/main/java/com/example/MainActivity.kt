@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.example.data.api.ChubApiClient
 import com.example.data.db.AppDatabase
 import com.example.data.repository.CharacterRepository
 import com.example.data.repository.ChatRepository
+import com.example.data.repository.ChubRepository
 import com.example.data.repository.SettingsRepository
 import com.example.ui.navigation.AppNavigation
 import com.example.ui.theme.KrizRPTheme
@@ -25,6 +27,13 @@ class MainActivity : ComponentActivity() {
         val characterRepository = CharacterRepository(db.characterDao())
         val chatRepository = ChatRepository(db.chatDao())
         val settingsRepository = SettingsRepository(db.settingDao())
+        val chubApiClient = ChubApiClient()
+        val chubRepository = ChubRepository(
+            apiClient = chubApiClient,
+            settingDao = db.settingDao(),
+            characterRepository = characterRepository,
+            context = applicationContext
+        )
 
         setContent {
             var isDarkTheme by remember { mutableStateOf(true) }
@@ -40,6 +49,7 @@ class MainActivity : ComponentActivity() {
                         characterRepository = characterRepository,
                         chatRepository = chatRepository,
                         settingsRepository = settingsRepository,
+                        chubRepository = chubRepository,
                         isDarkTheme = isDarkTheme,
                         onToggleDarkTheme = { isDarkTheme = it }
                     )

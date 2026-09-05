@@ -2,36 +2,36 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// Roleplay Dark Theme Palette (Matching Image)
+val DarkBackground = Color(0xFF0C0A14)
+val DarkSurface = Color(0xFF161322)
+val DarkSurfaceVariant = Color(0xFF221C34)
+val DarkBorder = Color(0xFF2E2746)
+val DarkPrimary = Color(0xFF8B5CF6)
+val DarkPrimaryVariant = Color(0xFF7C3AED)
+val DarkSecondary = Color(0xFFA78BFA)
+val DarkTertiary = Color(0xFFEC4899)
+val DarkTextPrimary = Color(0xFFF5F3FA)
+val DarkTextSecondary = Color(0xFF9E97B3)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
-
-// Custom Roleplay & Night Theme Colors
-val DarkBackground = Color(0xFF13111C)
-val DarkSurface = Color(0xFF1E1A29)
-val DarkSurfaceVariant = Color(0xFF2A2438)
-val DarkPrimary = Color(0xFFB388FF)
-val DarkSecondary = Color(0xFF80D8FF)
-val DarkTertiary = Color(0xFFFF80AB)
-val DarkTextPrimary = Color(0xFFF3EEFA)
-val DarkTextSecondary = Color(0xFFB5AEC4)
-
-// Light Theme Colors
-val LightBackground = Color(0xFFF8F7FC)
+// Light Theme Palette (Clean, modern counterpart matching Image)
+val LightBackground = Color(0xFFF7F6FB)
 val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFEDE8F5)
-val LightPrimary = Color(0xFF651FFF)
-val LightSecondary = Color(0xFF0091EA)
-val LightTextPrimary = Color(0xFF1B1625)
-val LightTextSecondary = Color(0xFF5A536B)
+val LightSurfaceVariant = Color(0xFFF0ECF8)
+val LightBorder = Color(0xFFE2DCF0)
+val LightPrimary = Color(0xFF7C3AED)
+val LightPrimaryVariant = Color(0xFF6D28D9)
+val LightSecondary = Color(0xFF8B5CF6)
+val LightTertiary = Color(0xFFDB2777)
+val LightTextPrimary = Color(0xFF191426)
+val LightTextSecondary = Color(0xFF6B6480)
 
-// Accent Palette
-val AccentViolet = Color(0xFF7C4DFF)
-val AccentCyan = Color(0xFF00E5FF)
-val AccentAmber = Color(0xFFFFAB00)
-val AccentEmerald = Color(0xFF00E676)
-val AccentRose = Color(0xFFFF4081)
+// Accent & Status Colors
+val AccentPurple = Color(0xFF8B5CF6)
+val AccentPurpleLight = Color(0xFFA78BFA)
+val AccentGold = Color(0xFFFBBF24)
+val AccentGreen = Color(0xFF22C55E)
+val AccentRed = Color(0xFFEF4444)
+val AccentBlue = Color(0xFF3B82F6)
+val AccentIndigo = Color(0xFF6366F1)
+

@@ -4,6 +4,7 @@ import com.example.data.model.CharacterEntity
 import com.example.data.model.ChatMessageWithSwipes
 import com.example.data.model.ConnectionConfig
 import com.example.data.model.GenerationSettings
+import com.example.util.CrashLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ import java.util.concurrent.TimeUnit
 class LLMClient {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
@@ -81,35 +82,51 @@ class LLMClient {
         jsonBody.put("max_tokens", settings.maxTokens)
         jsonBody.put("stream", settings.streamResponse)
 
-        val baseUrl = config.baseUrl.trim().removeSuffix("/")
-        val endpoint = if (baseUrl.endsWith("/chat/completions")) {
-            baseUrl
-        } else {
-            "$baseUrl/chat/completions"
+        if (settings.frequencyPenalty != 0.0f) {
+            jsonBody.put("frequency_penalty", settings.frequencyPenalty)
+        }
+        if (settings.presencePenalty != 0.0f) {
+            jsonBody.put("presence_penalty", settings.presencePenalty)
         }
 
-        val requestBuilder = Request.Builder()
-            .url(endpoint)
-            .post(jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-
-        if (config.apiKey.isNotBlank()) {
-            requestBuilder.addHeader("Authorization", "Bearer ${config.apiKey.trim()}")
+        // Reasoning controls
+        if (settings.reasoningEffort != "none" && !settings.excludeReasoning) {
+            jsonBody.put("reasoning_effort", settings.reasoningEffort)
         }
-
-        // Custom headers if any
-        if (config.customHeaders.isNotBlank()) {
-            config.customHeaders.lines().forEach { line ->
-                val parts = line.split(":", limit = 2)
-                if (parts.size == 2) {
-                    requestBuilder.addHeader(parts[0].trim(), parts[1].trim())
-                }
-            }
-        }
-
-        val request = requestBuilder.build()
 
         var receivedAny = false
+        var insideReasoning = false
+
         try {
+            val baseUrl = config.baseUrl.trim().removeSuffix("/")
+            if (baseUrl.isBlank() || (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://"))) {
+                throw IllegalArgumentException("Invalid base URL: $baseUrl")
+            }
+            val endpoint = if (baseUrl.endsWith("/chat/completions")) {
+                baseUrl
+            } else {
+                "$baseUrl/chat/completions"
+            }
+
+            val requestBuilder = Request.Builder()
+                .url(endpoint)
+                .post(jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+
+            if (config.apiKey.isNotBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer ${config.apiKey.trim()}")
+            }
+
+            // Custom headers if any
+            if (config.customHeaders.isNotBlank()) {
+                config.customHeaders.lines().forEach { line ->
+                    val parts = line.split(":", limit = 2)
+                    if (parts.size == 2) {
+                        requestBuilder.addHeader(parts[0].trim(), parts[1].trim())
+                    }
+                }
+            }
+
+            val request = requestBuilder.build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
                 val errBody = response.body?.string() ?: ""
@@ -131,15 +148,38 @@ class LLMClient {
                                 val choices = json.optJSONArray("choices")
                                 if (choices != null && choices.length() > 0) {
                                     val delta = choices.getJSONObject(0).optJSONObject("delta")
-                                    val token = delta?.optString("content", "") ?: ""
-                                    if (token.isNotEmpty()) {
-                                        receivedAny = true
-                                        emit(token)
+                                    if (delta != null) {
+                                        // Check for reasoning chunk
+                                        val reasoningChunk = delta.optString("reasoning_content", "")
+                                            .ifEmpty { delta.optString("reasoning", "") }
+
+                                        if (reasoningChunk.isNotEmpty() && !settings.excludeReasoning) {
+                                            if (!insideReasoning) {
+                                                insideReasoning = true
+                                                emit("<think>\n")
+                                            }
+                                            receivedAny = true
+                                            emit(reasoningChunk)
+                                        }
+
+                                        // Regular content chunk
+                                        val content = delta.optString("content", "")
+                                        if (content.isNotEmpty()) {
+                                            if (insideReasoning) {
+                                                insideReasoning = false
+                                                emit("\n</think>\n\n")
+                                            }
+                                            receivedAny = true
+                                            emit(content)
+                                        }
                                     }
                                 }
                             } catch (_: Exception) {
                             }
                         }
+                    }
+                    if (insideReasoning) {
+                        emit("\n</think>\n\n")
                     }
                 } else {
                     val fullResponse = body.string()
@@ -147,18 +187,26 @@ class LLMClient {
                     val choices = json.optJSONArray("choices")
                     if (choices != null && choices.length() > 0) {
                         val message = choices.getJSONObject(0).optJSONObject("message")
+                        val reasoning = message?.optString("reasoning_content", "")
+                            ?.ifEmpty { message.optString("reasoning", "") } ?: ""
                         val content = message?.optString("content", "") ?: ""
-                        if (content.isNotEmpty()) {
+
+                        var fullText = ""
+                        if (reasoning.isNotEmpty() && !settings.excludeReasoning) {
+                            fullText += "<think>\n$reasoning\n</think>\n\n"
+                        }
+                        fullText += content
+                        if (fullText.isNotEmpty()) {
                             receivedAny = true
-                            emit(content)
+                            emit(fullText)
                         }
                     }
                 }
             }
         } catch (e: Exception) {
+            CrashLogger.logWarning("LLMClient", "Generation error (falling back to interactive simulation): ${e.message}", e)
             if (!receivedAny) {
-                // If the remote API couldn't be reached (e.g. no key yet or local network not configured),
-                // provide an intelligent interactive fallback response tailored to the character!
+                // Interactive fallback simulation
                 val fallbackTokens = generateInteractiveSimulation(character, userName, history)
                 for (token in fallbackTokens) {
                     emit(token)
@@ -167,6 +215,79 @@ class LLMClient {
             }
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Dynamically fetches the list of available models from the provider endpoint.
+     */
+    suspend fun fetchAvailableModels(config: ConnectionConfig): Result<List<String>> = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = if (config.modelEndpoint.isNotBlank()) {
+                config.modelEndpoint.trim()
+            } else {
+                val base = config.baseUrl.trim().removeSuffix("/")
+                if (config.provider == "ollama") {
+                    if (base.endsWith("/v1")) base.removeSuffix("/v1") + "/api/tags" else "$base/api/tags"
+                } else if (base.endsWith("/chat/completions")) {
+                    base.removeSuffix("/chat/completions") + "/models"
+                } else {
+                    "$base/models"
+                }
+            }
+
+            val requestBuilder = Request.Builder().url(endpoint).get()
+            if (config.apiKey.isNotBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer ${config.apiKey.trim()}")
+            }
+
+            if (config.customHeaders.isNotBlank()) {
+                config.customHeaders.lines().forEach { line ->
+                    val parts = line.split(":", limit = 2)
+                    if (parts.size == 2) {
+                        requestBuilder.addHeader(parts[0].trim(), parts[1].trim())
+                    }
+                }
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
+            if (!response.isSuccessful) {
+                val err = response.body?.string() ?: ""
+                return@withContext Result.failure(Exception("HTTP ${response.code}: $err"))
+            }
+
+            val body = response.body?.string() ?: ""
+            val json = JSONObject(body)
+            val modelList = mutableListOf<String>()
+
+            // 1. OpenAI / Gemini / OpenRouter standard: { "data": [ { "id": "model-id" } ] }
+            val dataArr = json.optJSONArray("data")
+            if (dataArr != null) {
+                for (i in 0 until dataArr.length()) {
+                    val obj = dataArr.optJSONObject(i)
+                    val id = obj?.optString("id", "") ?: ""
+                    if (id.isNotBlank()) modelList.add(id)
+                }
+            }
+
+            // 2. Ollama format: { "models": [ { "name": "llama3:8b" } ] }
+            val modelsArr = json.optJSONArray("models")
+            if (modelsArr != null) {
+                for (i in 0 until modelsArr.length()) {
+                    val obj = modelsArr.optJSONObject(i)
+                    val name = obj?.optString("name", "") ?: obj?.optString("id", "") ?: ""
+                    if (name.isNotBlank()) modelList.add(name)
+                }
+            }
+
+            if (modelList.isEmpty()) {
+                // Return common defaults if empty
+                return@withContext Result.success(listOf("gemini-2.5-flash", "gemini-2.5-pro", "gpt-4o", "gpt-4o-mini", "claude-3.5-sonnet"))
+            }
+
+            Result.success(modelList.sorted())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun testConnection(config: ConnectionConfig): Result<String> = withContext(Dispatchers.IO) {
         try {
@@ -199,7 +320,7 @@ class LLMClient {
 
             val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
-                Result.success("Connection successful! HTTP ${response.code}")
+                Result.success("Connection successful! (HTTP ${response.code})")
             } else {
                 val err = response.body?.string() ?: ""
                 Result.failure(Exception("HTTP ${response.code}: $err"))
@@ -236,7 +357,6 @@ class LLMClient {
             }
         }
 
-        // Split into small word chunks to stream
         return simulatedText.split(" ").mapIndexed { index, word ->
             if (index == 0) word else " $word"
         }

@@ -81,7 +81,8 @@ abstract class AppDatabase : RoomDatabase() {
                     systemPrompt = "Write as Aria, maintaining immersive third-person dialogue and narrative actions enclosed in asterisks.",
                     creator = "KrizRP",
                     tags = "Cyberpunk, Sci-Fi, Roleplay",
-                    avatarColor = 0xFF7B1FA2
+                    avatarColor = 0xFF7B1FA2,
+                    avatarUri = "https://avatars.charhub.io/avatars/reaper/aria/avatar.webp"
                 )
             )
 
@@ -98,7 +99,8 @@ abstract class AppDatabase : RoomDatabase() {
                     systemPrompt = "Roleplay as Lyra in an evocative fantasy tone. Use asterisks for actions and quotes for speech.",
                     creator = "KrizRP",
                     tags = "Fantasy, Magic, Adventure",
-                    avatarColor = 0xFF00897B
+                    avatarColor = 0xFF00897B,
+                    avatarUri = "https://avatars.charhub.io/avatars/creators/lyra/avatar.webp"
                 )
             )
 
@@ -114,7 +116,8 @@ abstract class AppDatabase : RoomDatabase() {
                     systemPrompt = "Roleplay as E.C.H.O. ship computer AI.",
                     creator = "KrizRP",
                     tags = "Sci-Fi, AI, Assistant",
-                    avatarColor = 0xFF1976D2
+                    avatarColor = 0xFF1976D2,
+                    avatarUri = "https://avatars.charhub.io/avatars/creators/echo/avatar.webp"
                 )
             )
 

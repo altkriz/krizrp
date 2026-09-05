@@ -2,6 +2,7 @@ package com.example.ui.screens.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.model.GenerationSettings
 import com.example.data.repository.SettingsRepository
 import kotlinx.coroutines.launch
@@ -30,25 +30,44 @@ fun SamplerSettingsScreen(
     var temperature by remember { mutableFloatStateOf(0.8f) }
     var topP by remember { mutableFloatStateOf(0.95f) }
     var topK by remember { mutableIntStateOf(40) }
+    var minP by remember { mutableFloatStateOf(0.05f) }
     var repetitionPenalty by remember { mutableFloatStateOf(1.1f) }
+    var frequencyPenalty by remember { mutableFloatStateOf(0.0f) }
+    var presencePenalty by remember { mutableFloatStateOf(0.0f) }
     var maxTokens by remember { mutableIntStateOf(512) }
+    var contextLength by remember { mutableIntStateOf(4096) }
     var streamResponse by remember { mutableStateOf(true) }
+
+    // Reasoning parameters
+    var reasoningEffort by remember { mutableStateOf("medium") }
+    var reasoningMaxTokens by remember { mutableIntStateOf(1024) }
+    var excludeReasoning by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val s = settingsRepository.getGenerationSettings()
         temperature = s.temperature
         topP = s.topP
         topK = s.topK
+        minP = s.minP
         repetitionPenalty = s.repetitionPenalty
+        frequencyPenalty = s.frequencyPenalty
+        presencePenalty = s.presencePenalty
         maxTokens = s.maxTokens
+        contextLength = s.contextLength
         streamResponse = s.streamResponse
+        reasoningEffort = s.reasoningEffort
+        reasoningMaxTokens = s.reasoningMaxTokens
+        excludeReasoning = s.excludeReasoning
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Sampler Settings", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        "Sampler & Reasoning",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
                 },
                 navigationIcon = {
                     IconButton(
@@ -67,9 +86,16 @@ fun SamplerSettingsScreen(
                                         temperature = temperature,
                                         topP = topP,
                                         topK = topK,
+                                        minP = minP,
                                         repetitionPenalty = repetitionPenalty,
+                                        frequencyPenalty = frequencyPenalty,
+                                        presencePenalty = presencePenalty,
                                         maxTokens = maxTokens,
-                                        streamResponse = streamResponse
+                                        contextLength = contextLength,
+                                        streamResponse = streamResponse,
+                                        reasoningEffort = reasoningEffort,
+                                        reasoningMaxTokens = reasoningMaxTokens,
+                                        excludeReasoning = excludeReasoning
                                     )
                                 )
                                 onNavigateBack()
@@ -92,8 +118,16 @@ fun SamplerSettingsScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
+            // Section 1: Standard Samplers
+            Text(
+                text = "Sampling Parameters",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+
             // Temperature
             Column {
                 Row(
@@ -121,7 +155,7 @@ fun SamplerSettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Top P (Nucleus Sampling)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Top P (Nucleus)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                     Text(String.format("%.2f", topP), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                 }
                 Slider(
@@ -129,8 +163,24 @@ fun SamplerSettingsScreen(
                     onValueChange = { topP = it },
                     valueRange = 0.0f..1.0f
                 )
+            }
+
+            // Min P
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Min P", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(String.format("%.2f", minP), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                }
+                Slider(
+                    value = minP,
+                    onValueChange = { minP = it },
+                    valueRange = 0.0f..0.5f
+                )
                 Text(
-                    "Limits the pool of candidate tokens based on cumulative probability.",
+                    "Sets minimum probability threshold relative to most likely token.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -166,10 +216,21 @@ fun SamplerSettingsScreen(
                     onValueChange = { repetitionPenalty = it },
                     valueRange = 1.0f..1.5f
                 )
-                Text(
-                    "Penalizes repeated phrases to reduce looping in roleplay.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            // Frequency Penalty
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Frequency Penalty", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(String.format("%.2f", frequencyPenalty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                }
+                Slider(
+                    value = frequencyPenalty,
+                    onValueChange = { frequencyPenalty = it },
+                    valueRange = -2.0f..2.0f
                 )
             }
 
@@ -185,9 +246,58 @@ fun SamplerSettingsScreen(
                 Slider(
                     value = maxTokens.toFloat(),
                     onValueChange = { maxTokens = (it / 32).roundToInt() * 32 },
-                    valueRange = 64f..2048f
+                    valueRange = 64f..4096f
                 )
             }
+
+            HorizontalDivider()
+
+            // Section 2: Reasoning & Chain of Thought
+            Text(
+                text = "Reasoning & Thought (o1, o3, R1, Thinking Models)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Reasoning Effort:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("none" to "None", "low" to "Low", "medium" to "Medium", "high" to "High").forEach { (effort, label) ->
+                            FilterChip(
+                                selected = reasoningEffort == effort,
+                                onClick = { reasoningEffort = effort },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Exclude Reasoning Tokens", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Hides the reasoning thought block from model output.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = excludeReasoning,
+                            onCheckedChange = { excludeReasoning = it }
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider()
 
             // Stream response toggle
             Row(
@@ -204,6 +314,8 @@ fun SamplerSettingsScreen(
                     onCheckedChange = { streamResponse = it }
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

@@ -116,15 +116,28 @@ data class GenerationSettings(
     val temperature: Float = 0.8f,
     val topP: Float = 0.95f,
     val topK: Int = 40,
+    val minP: Float = 0.05f,
     val repetitionPenalty: Float = 1.1f,
+    val frequencyPenalty: Float = 0.0f,
+    val presencePenalty: Float = 0.0f,
     val maxTokens: Int = 512,
-    val streamResponse: Boolean = true
+    val contextLength: Int = 4096,
+    val streamResponse: Boolean = true,
+    // Reasoning settings (for o1, o3, DeepSeek R1, Gemini 2.0 Flash Thinking, Qwen)
+    val reasoningEffort: String = "medium", // "none", "low", "medium", "high"
+    val reasoningMaxTokens: Int = 1024,
+    val excludeReasoning: Boolean = false
 )
 
 data class ConnectionConfig(
-    val provider: String = "gemini", // "gemini", "openai", "ollama", "custom"
+    val id: String = "default_conn",
+    val friendlyName: String = "Google Gemini",
+    val provider: String = "gemini", // "gemini", "openai", "claude", "ollama", "openrouter", "kobold", "custom"
     val apiKey: String = "",
     val baseUrl: String = "https://generativelanguage.googleapis.com/v1beta/openai/",
     val modelName: String = "gemini-2.5-flash",
-    val customHeaders: String = ""
+    val modelEndpoint: String = "https://generativelanguage.googleapis.com/v1beta/openai/models",
+    val availableModels: List<String> = listOf("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-exp", "gemini-2.0-flash-thinking-exp"),
+    val customHeaders: String = "",
+    val active: Boolean = true
 )

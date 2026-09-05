@@ -88,6 +88,15 @@ interface ChatDao {
     @Update
     suspend fun updateSwipe(swipe: MessageSwipeEntity)
 
+    @Query("UPDATE message_swipes SET content = :content WHERE id = :swipeId")
+    suspend fun updateSwipeContent(swipeId: Long, content: String)
+
+    @Query("UPDATE chat_messages SET activeSwipeIndex = :newIndex WHERE id = :messageId")
+    suspend fun updateMessageActiveSwipeIndex(messageId: Long, newIndex: Int)
+
+    @Query("SELECT * FROM message_swipes WHERE messageId IN (SELECT id FROM chat_messages WHERE chatId = :chatId) ORDER BY id ASC")
+    fun getSwipesForChat(chatId: Long): Flow<List<MessageSwipeEntity>>
+
     @Query("DELETE FROM message_swipes WHERE id = :swipeId")
     suspend fun deleteSwipeById(swipeId: Long)
 }

@@ -8,6 +8,7 @@ import com.example.data.repository.ChatRepository
 import com.example.data.repository.SettingsRepository
 import com.example.engine.LLMClient
 import com.example.engine.PromptBuilder
+import com.example.util.CrashLogger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -20,6 +21,8 @@ data class ChatUiState(
     val messages: List<ChatMessageWithSwipes> = emptyList(),
     val inputText: String = "",
     val isGenerating: Boolean = false,
+    val streamingMessageId: Long? = null,
+    val streamingText: String = "",
     val connectionConfig: ConnectionConfig = ConnectionConfig(),
     val generationSettings: GenerationSettings = GenerationSettings()
 )
@@ -69,17 +72,34 @@ class ChatViewModel(
                 if (_uiState.value.currentChat == null && chats.isNotEmpty()) {
                     selectChat(chats.first().id)
                 } else if (chats.isEmpty() && char != null) {
-                    // Create first chat
+                    // Create first chat with all greetings
+                    val altList = parseAlternateGreetings(char.alternateGreetings)
                     val newChatId = chatRepository.createChat(
                         characterId = characterId,
                         userPersonaId = persona.id,
                         title = "Chat 1",
                         firstGreeting = char.firstMes,
-                        characterName = char.name
+                        characterName = char.name,
+                        alternateGreetings = altList
                     )
                     selectChat(newChatId)
                 }
             }
+        }
+    }
+
+    private fun parseAlternateGreetings(json: String): List<String> {
+        if (json.isBlank()) return emptyList()
+        return try {
+            val arr = org.json.JSONArray(json)
+            val list = mutableListOf<String>()
+            for (i in 0 until arr.length()) {
+                val g = arr.optString(i, "")
+                if (g.isNotBlank()) list.add(g)
+            }
+            list
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
@@ -99,12 +119,14 @@ class ChatViewModel(
         viewModelScope.launch {
             val char = _uiState.value.character ?: return@launch
             val persona = _uiState.value.userPersona
+            val altList = parseAlternateGreetings(char.alternateGreetings)
             val newChatId = chatRepository.createChat(
                 characterId = characterId,
                 userPersonaId = persona?.id ?: 0L,
                 title = title,
                 firstGreeting = char.firstMes,
-                characterName = char.name
+                characterName = char.name,
+                alternateGreetings = altList
             )
             selectChat(newChatId)
         }
@@ -144,18 +166,23 @@ class ChatViewModel(
         _uiState.update { it.copy(inputText = "") }
 
         viewModelScope.launch {
-            val currentOrder = _uiState.value.messages.size
-            // 1. Insert user message
-            chatRepository.addMessageWithSwipe(
-                chatId = chat.id,
-                isUser = true,
-                senderName = userName,
-                content = text,
-                orderIndex = currentOrder
-            )
+            try {
+                val currentOrder = _uiState.value.messages.size
+                // 1. Insert user message
+                chatRepository.addMessageWithSwipe(
+                    chatId = chat.id,
+                    isUser = true,
+                    senderName = userName,
+                    content = text,
+                    orderIndex = currentOrder
+                )
 
-            // 2. Trigger character response
-            generateCharacterResponse(chat.id, char, userPersona, currentOrder + 1)
+                // 2. Trigger character response
+                generateCharacterResponse(chat.id, char, userPersona, currentOrder + 1)
+            } catch (e: Exception) {
+                CrashLogger.logError("ChatViewModel", "Error sending message: ${e.message}", e)
+                android.util.Log.e("ChatViewModel", "Error sending message", e)
+            }
         }
     }
 
@@ -165,35 +192,67 @@ class ChatViewModel(
         val userPersona = _uiState.value.userPersona
 
         viewModelScope.launch {
-            val currentHistory = _uiState.value.messages.filter { it.message.orderIndex < messageItem.message.orderIndex }
-            val systemPrompt = PromptBuilder.buildSystemPrompt(char, userPersona)
-            val config = _uiState.value.connectionConfig
-            val genSettings = _uiState.value.generationSettings
+            try {
+                val currentHistory = _uiState.value.messages.filter { it.message.orderIndex < messageItem.message.orderIndex }
+                val systemPrompt = PromptBuilder.buildSystemPrompt(char, userPersona)
+                val config = _uiState.value.connectionConfig
+                val genSettings = _uiState.value.generationSettings
 
-            // Add an empty new swipe to the message
-            chatRepository.addSwipeToMessage(messageItem.message.id, "")
-            val updatedSwipes = chatRepository.getMessagesSnapshot(chat.id).find { it.message.id == messageItem.message.id }
-            val newSwipeIdx = (updatedSwipes?.swipes?.size ?: 1) - 1
-            chatRepository.updateMessageSwipeIndex(messageItem.message, newSwipeIdx)
+                // Add an empty new swipe to the message
+                val swipeResult = chatRepository.addSwipeToMessage(messageItem.message.id, "")
+                chatRepository.updateMessageSwipeIndex(messageItem.message.id, swipeResult.newIndex)
 
-            val newSwipeId = updatedSwipes?.swipes?.lastOrNull()?.id ?: return@launch
+                val newSwipeId = swipeResult.swipeId
 
-            _uiState.update { it.copy(isGenerating = true) }
-
-            var accumulated = ""
-            activeGenerationJob = viewModelScope.launch {
-                llmClient.streamChatCompletion(
-                    config = config,
-                    settings = genSettings,
-                    systemPrompt = systemPrompt,
-                    history = currentHistory,
-                    character = char,
-                    userPersona = userPersona
-                ).collect { chunk ->
-                    accumulated += chunk
-                    chatRepository.updateSwipeContent(newSwipeId, accumulated)
+                _uiState.update {
+                    it.copy(
+                        isGenerating = true,
+                        streamingMessageId = messageItem.message.id,
+                        streamingText = ""
+                    )
                 }
-                _uiState.update { it.copy(isGenerating = false) }
+
+                var accumulated = ""
+                activeGenerationJob?.cancel()
+                activeGenerationJob = viewModelScope.launch {
+                    try {
+                        llmClient.streamChatCompletion(
+                            config = config,
+                            settings = genSettings,
+                            systemPrompt = systemPrompt,
+                            history = currentHistory,
+                            character = char,
+                            userPersona = userPersona
+                        ).collect { chunk ->
+                            accumulated += chunk
+                            _uiState.update { it.copy(streamingText = accumulated) }
+                        }
+                    } catch (e: Exception) {
+                        CrashLogger.logError("ChatViewModel", "Error streaming regeneration: ${e.message}", e)
+                        android.util.Log.e("ChatViewModel", "Error streaming regeneration", e)
+                    } finally {
+                        if (newSwipeId > 0) {
+                            chatRepository.updateSwipeContent(newSwipeId, accumulated)
+                        }
+                        _uiState.update {
+                            it.copy(
+                                isGenerating = false,
+                                streamingMessageId = null,
+                                streamingText = ""
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                CrashLogger.logError("ChatViewModel", "Error initiating regenerate: ${e.message}", e)
+                android.util.Log.e("ChatViewModel", "Error initiating regenerate", e)
+                _uiState.update {
+                    it.copy(
+                        isGenerating = false,
+                        streamingMessageId = null,
+                        streamingText = ""
+                    )
+                }
             }
         }
     }
@@ -208,54 +267,88 @@ class ChatViewModel(
         val genSettings = _uiState.value.generationSettings
         val systemPrompt = PromptBuilder.buildSystemPrompt(character, userPersona)
 
-        _uiState.update { it.copy(isGenerating = true) }
-
         activeGenerationJob?.cancel()
         activeGenerationJob = viewModelScope.launch {
-            // Snapshot current history before assistant message
-            val history = chatRepository.getMessagesSnapshot(chatId)
+            try {
+                // Snapshot current history before assistant message
+                val history = chatRepository.getMessagesSnapshot(chatId)
 
-            // Insert placeholder message for assistant
-            val msgId = chatRepository.addMessageWithSwipe(
-                chatId = chatId,
-                isUser = false,
-                senderName = character.name,
-                content = "",
-                orderIndex = orderIndex
-            )
+                // Insert placeholder message for assistant
+                val result = chatRepository.addMessageWithSwipe(
+                    chatId = chatId,
+                    isUser = false,
+                    senderName = character.name,
+                    content = "",
+                    orderIndex = orderIndex
+                )
+                val assistantMsgId = result.messageId
+                val assistantSwipeId = result.swipeId
 
-            val snapshot = chatRepository.getMessagesSnapshot(chatId)
-            val assistantItem = snapshot.find { it.message.id == msgId }
-            val swipeId = assistantItem?.swipes?.firstOrNull()?.id ?: 0L
+                _uiState.update {
+                    it.copy(
+                        isGenerating = true,
+                        streamingMessageId = assistantMsgId,
+                        streamingText = ""
+                    )
+                }
 
-            var accumulated = ""
-            llmClient.streamChatCompletion(
-                config = config,
-                settings = genSettings,
-                systemPrompt = systemPrompt,
-                history = history,
-                character = character,
-                userPersona = userPersona
-            ).collect { chunk ->
-                accumulated += chunk
-                if (swipeId > 0) {
-                    chatRepository.updateSwipeContent(swipeId, accumulated)
+                var accumulated = ""
+                try {
+                    llmClient.streamChatCompletion(
+                        config = config,
+                        settings = genSettings,
+                        systemPrompt = systemPrompt,
+                        history = history,
+                        character = character,
+                        userPersona = userPersona
+                    ).collect { chunk ->
+                        accumulated += chunk
+                        _uiState.update { it.copy(streamingText = accumulated) }
+                    }
+                } catch (e: Exception) {
+                    CrashLogger.logError("ChatViewModel", "Stream collection error: ${e.message}", e)
+                    android.util.Log.e("ChatViewModel", "Stream collection error", e)
+                } finally {
+                    if (assistantSwipeId > 0) {
+                        chatRepository.updateSwipeContent(assistantSwipeId, accumulated)
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isGenerating = false,
+                            streamingMessageId = null,
+                            streamingText = ""
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                CrashLogger.logError("ChatViewModel", "Error generating response: ${e.message}", e)
+                android.util.Log.e("ChatViewModel", "Error generating response", e)
+                _uiState.update {
+                    it.copy(
+                        isGenerating = false,
+                        streamingMessageId = null,
+                        streamingText = ""
+                    )
                 }
             }
-
-            _uiState.update { it.copy(isGenerating = false) }
         }
     }
 
     fun stopGeneration() {
         activeGenerationJob?.cancel()
-        _uiState.update { it.copy(isGenerating = false) }
+        _uiState.update {
+            it.copy(
+                isGenerating = false,
+                streamingMessageId = null,
+                streamingText = ""
+            )
+        }
     }
 
     fun switchSwipe(messageItem: ChatMessageWithSwipes, newIndex: Int) {
         if (newIndex in 0 until messageItem.swipeCount) {
             viewModelScope.launch {
-                chatRepository.updateMessageSwipeIndex(messageItem.message, newIndex)
+                chatRepository.updateMessageSwipeIndex(messageItem.message.id, newIndex)
             }
         }
     }

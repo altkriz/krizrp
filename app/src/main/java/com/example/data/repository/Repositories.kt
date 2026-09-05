@@ -53,6 +53,9 @@ class CharacterRepository(private val characterDao: CharacterDao) {
         }
 }
 
+data class MessageSwipeResult(val messageId: Long, val swipeId: Long)
+data class NewSwipeResult(val swipeId: Long, val newIndex: Int)
+
 class ChatRepository(private val chatDao: ChatDao) {
     fun getChatsForCharacter(characterId: Long): Flow<List<ChatSessionEntity>> =
         chatDao.getChatsForCharacter(characterId).flowOn(Dispatchers.IO)
@@ -72,7 +75,8 @@ class ChatRepository(private val chatDao: ChatDao) {
         userPersonaId: Long,
         title: String,
         firstGreeting: String,
-        characterName: String
+        characterName: String,
+        alternateGreetings: List<String> = emptyList()
     ): Long = withContext(Dispatchers.IO) {
         val chatId = chatDao.insertChat(
             ChatSessionEntity(
@@ -81,7 +85,7 @@ class ChatRepository(private val chatDao: ChatDao) {
                 title = title
             )
         )
-        if (firstGreeting.isNotBlank()) {
+        if (firstGreeting.isNotBlank() || alternateGreetings.isNotEmpty()) {
             val msgId = chatDao.insertMessage(
                 ChatMessageEntity(
                     chatId = chatId,
@@ -91,12 +95,24 @@ class ChatRepository(private val chatDao: ChatDao) {
                     orderIndex = 0
                 )
             )
-            chatDao.insertSwipe(
-                MessageSwipeEntity(
-                    messageId = msgId,
-                    content = firstGreeting
+            if (firstGreeting.isNotBlank()) {
+                chatDao.insertSwipe(
+                    MessageSwipeEntity(
+                        messageId = msgId,
+                        content = firstGreeting
+                    )
                 )
-            )
+            }
+            alternateGreetings.forEach { alt ->
+                if (alt.isNotBlank()) {
+                    chatDao.insertSwipe(
+                        MessageSwipeEntity(
+                            messageId = msgId,
+                            content = alt
+                        )
+                    )
+                }
+            }
         }
         chatId
     }
@@ -115,11 +131,11 @@ class ChatRepository(private val chatDao: ChatDao) {
         }
 
     fun getMessagesWithSwipes(chatId: Long): Flow<List<ChatMessageWithSwipes>> {
-        return chatDao.getMessagesForChat(chatId).map { messages ->
-            val messageIds = messages.map { it.id }
-            val swipes = if (messageIds.isNotEmpty()) chatDao.getSwipesForMessages(messageIds) else emptyList()
+        return kotlinx.coroutines.flow.combine(
+            chatDao.getMessagesForChat(chatId),
+            chatDao.getSwipesForChat(chatId)
+        ) { messages, swipes ->
             val swipesByMessageId = swipes.groupBy { it.messageId }
-
             messages.map { msg ->
                 ChatMessageWithSwipes(
                     message = msg,
@@ -150,7 +166,7 @@ class ChatRepository(private val chatDao: ChatDao) {
         senderName: String,
         content: String,
         orderIndex: Int
-    ): Long = withContext(Dispatchers.IO) {
+    ): MessageSwipeResult = withContext(Dispatchers.IO) {
         val msgId = chatDao.insertMessage(
             ChatMessageEntity(
                 chatId = chatId,
@@ -161,7 +177,7 @@ class ChatRepository(private val chatDao: ChatDao) {
                 timestamp = System.currentTimeMillis()
             )
         )
-        chatDao.insertSwipe(
+        val swipeId = chatDao.insertSwipe(
             MessageSwipeEntity(
                 messageId = msgId,
                 content = content
@@ -171,34 +187,30 @@ class ChatRepository(private val chatDao: ChatDao) {
         chatDao.getChatById(chatId)?.let {
             chatDao.updateChat(it.copy(lastModified = System.currentTimeMillis()))
         }
-        msgId
+        MessageSwipeResult(msgId, swipeId)
     }
 
-    suspend fun addSwipeToMessage(messageId: Long, content: String): Int =
+    suspend fun addSwipeToMessage(messageId: Long, content: String): NewSwipeResult =
         withContext(Dispatchers.IO) {
-            chatDao.insertSwipe(
+            val swipeId = chatDao.insertSwipe(
                 MessageSwipeEntity(
                     messageId = messageId,
                     content = content
                 )
             )
             val allSwipes = chatDao.getSwipesListForMessage(messageId)
-            val newIdx = allSwipes.size - 1
-            // update message to point to new swipe
-            // find message
-            val messages = chatDao.getMessagesListForChat(-1) // or fetch
-            // Or get through swipes
-            newIdx
+            val newIdx = (allSwipes.size - 1).coerceAtLeast(0)
+            NewSwipeResult(swipeId, newIdx)
         }
 
-    suspend fun updateMessageSwipeIndex(message: ChatMessageEntity, newIndex: Int) =
+    suspend fun updateMessageSwipeIndex(messageId: Long, newIndex: Int) =
         withContext(Dispatchers.IO) {
-            chatDao.updateMessage(message.copy(activeSwipeIndex = newIndex))
+            chatDao.updateMessageActiveSwipeIndex(messageId, newIndex)
         }
 
     suspend fun updateSwipeContent(swipeId: Long, newContent: String) =
         withContext(Dispatchers.IO) {
-            chatDao.updateSwipe(MessageSwipeEntity(id = swipeId, messageId = 0, content = newContent))
+            chatDao.updateSwipeContent(swipeId, newContent)
         }
 
     suspend fun deleteMessage(messageId: Long) =
@@ -208,30 +220,139 @@ class ChatRepository(private val chatDao: ChatDao) {
 }
 
 class SettingsRepository(private val settingDao: SettingDao) {
-    private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun getConnectionConfig(): ConnectionConfig = withContext(Dispatchers.IO) {
-        val raw = settingDao.getSetting("connection_config")
+    suspend fun getAllConnections(): List<ConnectionConfig> = withContext(Dispatchers.IO) {
+        val raw = settingDao.getSetting("all_connections")
         if (raw.isNullOrBlank()) {
-            ConnectionConfig()
+            val defaultList = listOf(
+                ConnectionConfig(
+                    id = "gemini_default",
+                    friendlyName = "Google Gemini Flash",
+                    provider = "gemini",
+                    baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                    modelName = "gemini-2.5-flash",
+                    modelEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/models",
+                    availableModels = listOf("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-exp", "gemini-2.0-flash-thinking-exp"),
+                    active = true
+                ),
+                ConnectionConfig(
+                    id = "openai_default",
+                    friendlyName = "OpenAI GPT-4o Mini",
+                    provider = "openai",
+                    baseUrl = "https://api.openai.com/v1/",
+                    modelName = "gpt-4o-mini",
+                    modelEndpoint = "https://api.openai.com/v1/models",
+                    availableModels = listOf("gpt-4o-mini", "gpt-4o", "o1-mini", "o3-mini"),
+                    active = false
+                ),
+                ConnectionConfig(
+                    id = "openrouter_default",
+                    friendlyName = "OpenRouter",
+                    provider = "openrouter",
+                    baseUrl = "https://openrouter.ai/api/v1/",
+                    modelName = "google/gemini-2.5-flash",
+                    modelEndpoint = "https://openrouter.ai/api/v1/models",
+                    availableModels = listOf("google/gemini-2.5-flash", "deepseek/deepseek-r1", "anthropic/claude-3.5-sonnet"),
+                    active = false
+                ),
+                ConnectionConfig(
+                    id = "ollama_default",
+                    friendlyName = "Local Ollama",
+                    provider = "ollama",
+                    baseUrl = "http://10.0.2.2:11434/v1/",
+                    modelName = "llama3:8b",
+                    modelEndpoint = "http://10.0.2.2:11434/api/tags",
+                    availableModels = listOf("llama3:8b", "mistral:7b", "qwen2.5:7b"),
+                    active = false
+                )
+            )
+            saveAllConnections(defaultList)
+            defaultList
         } else {
             try {
-                ConnectionConfig(
-                    provider = parseString(raw, "provider") ?: "gemini",
-                    apiKey = parseString(raw, "apiKey") ?: "",
-                    baseUrl = parseString(raw, "baseUrl") ?: "https://generativelanguage.googleapis.com/v1beta/openai/",
-                    modelName = parseString(raw, "modelName") ?: "gemini-2.5-flash",
-                    customHeaders = parseString(raw, "customHeaders") ?: ""
-                )
+                val array = org.json.JSONArray(raw)
+                val list = mutableListOf<ConnectionConfig>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val modelsArr = obj.optJSONArray("availableModels")
+                    val modelsList = mutableListOf<String>()
+                    if (modelsArr != null) {
+                        for (m in 0 until modelsArr.length()) {
+                            modelsList.add(modelsArr.getString(m))
+                        }
+                    }
+                    list.add(
+                        ConnectionConfig(
+                            id = obj.optString("id", java.util.UUID.randomUUID().toString()),
+                            friendlyName = obj.optString("friendlyName", "Connection"),
+                            provider = obj.optString("provider", "gemini"),
+                            apiKey = obj.optString("apiKey", ""),
+                            baseUrl = obj.optString("baseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/"),
+                            modelName = obj.optString("modelName", "gemini-2.5-flash"),
+                            modelEndpoint = obj.optString("modelEndpoint", ""),
+                            availableModels = modelsList,
+                            customHeaders = obj.optString("customHeaders", ""),
+                            active = obj.optBoolean("active", false)
+                        )
+                    )
+                }
+                list
             } catch (e: Exception) {
-                ConnectionConfig()
+                listOf(ConnectionConfig())
             }
         }
     }
 
+    suspend fun saveAllConnections(connections: List<ConnectionConfig>) = withContext(Dispatchers.IO) {
+        val array = org.json.JSONArray()
+        connections.forEach { conn ->
+            val obj = org.json.JSONObject()
+            obj.put("id", conn.id)
+            obj.put("friendlyName", conn.friendlyName)
+            obj.put("provider", conn.provider)
+            obj.put("apiKey", conn.apiKey)
+            obj.put("baseUrl", conn.baseUrl)
+            obj.put("modelName", conn.modelName)
+            obj.put("modelEndpoint", conn.modelEndpoint)
+            val modelsArr = org.json.JSONArray()
+            conn.availableModels.forEach { modelsArr.put(it) }
+            obj.put("availableModels", modelsArr)
+            obj.put("customHeaders", conn.customHeaders)
+            obj.put("active", conn.active)
+            array.put(obj)
+        }
+        settingDao.setSetting(SettingEntity("all_connections", array.toString()))
+    }
+
+    suspend fun getConnectionConfig(): ConnectionConfig = withContext(Dispatchers.IO) {
+        val all = getAllConnections()
+        all.firstOrNull { it.active } ?: all.firstOrNull() ?: ConnectionConfig()
+    }
+
     suspend fun saveConnectionConfig(config: ConnectionConfig) = withContext(Dispatchers.IO) {
-        val serialized = "{\"provider\":\"${config.provider}\",\"apiKey\":\"${config.apiKey}\",\"baseUrl\":\"${config.baseUrl}\",\"modelName\":\"${config.modelName}\",\"customHeaders\":\"${config.customHeaders}\"}"
-        settingDao.setSetting(SettingEntity("connection_config", serialized))
+        val all = getAllConnections().toMutableList()
+        val existingIndex = all.indexOfFirst { it.id == config.id }
+        if (existingIndex >= 0) {
+            all[existingIndex] = config
+        } else {
+            all.add(config)
+        }
+        if (config.active) {
+            all.forEachIndexed { idx, item ->
+                all[idx] = item.copy(active = item.id == config.id)
+            }
+        }
+        saveAllConnections(all)
+    }
+
+    suspend fun deleteConnection(id: String) = withContext(Dispatchers.IO) {
+        val all = getAllConnections().filter { it.id != id }
+        saveAllConnections(all)
+    }
+
+    suspend fun setActiveConnection(id: String) = withContext(Dispatchers.IO) {
+        val all = getAllConnections().map { it.copy(active = it.id == id) }
+        saveAllConnections(all)
     }
 
     suspend fun getGenerationSettings(): GenerationSettings = withContext(Dispatchers.IO) {
@@ -240,13 +361,21 @@ class SettingsRepository(private val settingDao: SettingDao) {
             GenerationSettings()
         } else {
             try {
+                val obj = org.json.JSONObject(raw)
                 GenerationSettings(
-                    temperature = parseFloat(raw, "temperature") ?: 0.8f,
-                    topP = parseFloat(raw, "topP") ?: 0.95f,
-                    topK = parseInt(raw, "topK") ?: 40,
-                    repetitionPenalty = parseFloat(raw, "repetitionPenalty") ?: 1.1f,
-                    maxTokens = parseInt(raw, "maxTokens") ?: 512,
-                    streamResponse = parseBool(raw, "streamResponse") ?: true
+                    temperature = obj.optDouble("temperature", 0.8).toFloat(),
+                    topP = obj.optDouble("topP", 0.95).toFloat(),
+                    topK = obj.optInt("topK", 40),
+                    minP = obj.optDouble("minP", 0.05).toFloat(),
+                    repetitionPenalty = obj.optDouble("repetitionPenalty", 1.1).toFloat(),
+                    frequencyPenalty = obj.optDouble("frequencyPenalty", 0.0).toFloat(),
+                    presencePenalty = obj.optDouble("presencePenalty", 0.0).toFloat(),
+                    maxTokens = obj.optInt("maxTokens", 512),
+                    contextLength = obj.optInt("contextLength", 4096),
+                    streamResponse = obj.optBoolean("streamResponse", true),
+                    reasoningEffort = obj.optString("reasoningEffort", "medium"),
+                    reasoningMaxTokens = obj.optInt("reasoningMaxTokens", 1024),
+                    excludeReasoning = obj.optBoolean("excludeReasoning", false)
                 )
             } catch (e: Exception) {
                 GenerationSettings()
@@ -255,8 +384,21 @@ class SettingsRepository(private val settingDao: SettingDao) {
     }
 
     suspend fun saveGenerationSettings(settings: GenerationSettings) = withContext(Dispatchers.IO) {
-        val serialized = "{\"temperature\":${settings.temperature},\"topP\":${settings.topP},\"topK\":${settings.topK},\"repetitionPenalty\":${settings.repetitionPenalty},\"maxTokens\":${settings.maxTokens},\"streamResponse\":${settings.streamResponse}}"
-        settingDao.setSetting(SettingEntity("generation_settings", serialized))
+        val obj = org.json.JSONObject()
+        obj.put("temperature", settings.temperature.toDouble())
+        obj.put("topP", settings.topP.toDouble())
+        obj.put("topK", settings.topK)
+        obj.put("minP", settings.minP.toDouble())
+        obj.put("repetitionPenalty", settings.repetitionPenalty.toDouble())
+        obj.put("frequencyPenalty", settings.frequencyPenalty.toDouble())
+        obj.put("presencePenalty", settings.presencePenalty.toDouble())
+        obj.put("maxTokens", settings.maxTokens)
+        obj.put("contextLength", settings.contextLength)
+        obj.put("streamResponse", settings.streamResponse)
+        obj.put("reasoningEffort", settings.reasoningEffort)
+        obj.put("reasoningMaxTokens", settings.reasoningMaxTokens)
+        obj.put("excludeReasoning", settings.excludeReasoning)
+        settingDao.setSetting(SettingEntity("generation_settings", obj.toString()))
     }
 
     suspend fun getActivePersonaId(): Long = withContext(Dispatchers.IO) {
@@ -273,25 +415,5 @@ class SettingsRepository(private val settingDao: SettingDao) {
 
     suspend fun saveThemePreference(theme: String) = withContext(Dispatchers.IO) {
         settingDao.setSetting(SettingEntity("theme_pref", theme))
-    }
-
-    private fun parseString(json: String, key: String): String? {
-        val regex = Regex("\"$key\"\\s*:\\s*\"([^\"]*)\"")
-        return regex.find(json)?.groupValues?.get(1)
-    }
-
-    private fun parseFloat(json: String, key: String): Float? {
-        val regex = Regex("\"$key\"\\s*:\\s*([0-9.]+)")
-        return regex.find(json)?.groupValues?.get(1)?.toFloatOrNull()
-    }
-
-    private fun parseInt(json: String, key: String): Int? {
-        val regex = Regex("\"$key\"\\s*:\\s*([0-9]+)")
-        return regex.find(json)?.groupValues?.get(1)?.toIntOrNull()
-    }
-
-    private fun parseBool(json: String, key: String): Boolean? {
-        val regex = Regex("\"$key\"\\s*:\\s*(true|false)")
-        return regex.find(json)?.groupValues?.get(1)?.toBooleanStrictOrNull()
     }
 }
