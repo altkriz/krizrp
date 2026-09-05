@@ -1,0 +1,6 @@
+{
+  "name": "KrizRP",
+  "description": "AI Roleplay and Character Chat application with custom personas, prompts, and local or remote model inferencing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

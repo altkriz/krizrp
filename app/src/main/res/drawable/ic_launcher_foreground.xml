@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Centered within 66dp safe zone (21 to 87) -->
+    <!-- Speech bubble body -->
+    <path
+        android:fillColor="#9C27B0"
+        android:pathData="M34,30 C27.4,30 22,35.4 22,42 L22,66 C22,72.6 27.4,78 34,78 L42,78 L42,86 L52,78 L74,78 C80.6,78 86,72.6 86,66 L86,42 C86,35.4 80.6,30 74,30 Z" />
+    <!-- Character spark / mask inner design -->
+    <path
+        android:fillColor="#E1BEE7"
+        android:pathData="M44,46 A6,6 0 1,0 44,58 A6,6 0 1,0 44,46 Z M64,46 A6,6 0 1,0 64,58 A6,6 0 1,0 64,46 Z" />
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M54,34 L56.5,41.5 L64,44 L56.5,46.5 L54,54 L51.5,46.5 L44,44 L51.5,41.5 Z" />
+</vector>
