@@ -37,6 +37,7 @@ fun SettingsScreen(
     onNavigateConnections: () -> Unit,
     onNavigateSampler: () -> Unit,
     onNavigatePersonas: () -> Unit,
+    onNavigateDesktopMode: () -> Unit = {},
     onNavigateLogs: () -> Unit,
     isDarkTheme: Boolean,
     onToggleDarkTheme: (Boolean) -> Unit
@@ -121,6 +122,17 @@ fun SettingsScreen(
                             title = "User Personas",
                             subtitle = "Manage user identities, names, and avatars",
                             onClick = onNavigatePersonas
+                        )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        val isServerRunning by com.example.server.DesktopServerManager.isRunning.collectAsState()
+                        SettingsRow(
+                            icon = Icons.Default.Laptop,
+                            title = "Desktop Mode",
+                            subtitle = if (isServerRunning) "Companion server active • Tap to view URL" else "Host local companion website on Wi-Fi for PC",
+                            onClick = onNavigateDesktopMode
                         )
                     }
                 }

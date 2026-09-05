@@ -51,12 +51,20 @@ class CharacterRepository(private val characterDao: CharacterDao) {
             )
             characterDao.insertCharacter(duplicate)
         }
+
+    suspend fun touchCharacter(id: Long, timestamp: Long = System.currentTimeMillis()) =
+        withContext(Dispatchers.IO) {
+            characterDao.updateLastModified(id, timestamp)
+        }
 }
 
 data class MessageSwipeResult(val messageId: Long, val swipeId: Long)
 data class NewSwipeResult(val swipeId: Long, val newIndex: Int)
 
-class ChatRepository(private val chatDao: ChatDao) {
+class ChatRepository(
+    private val chatDao: ChatDao,
+    private val characterDao: CharacterDao? = null
+) {
     fun getChatsForCharacter(characterId: Long): Flow<List<ChatSessionEntity>> =
         chatDao.getChatsForCharacter(characterId).flowOn(Dispatchers.IO)
 
@@ -78,11 +86,15 @@ class ChatRepository(private val chatDao: ChatDao) {
         characterName: String,
         alternateGreetings: List<String> = emptyList()
     ): Long = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        characterDao?.updateLastModified(characterId, now)
         val chatId = chatDao.insertChat(
             ChatSessionEntity(
                 characterId = characterId,
                 userPersonaId = userPersonaId,
-                title = title
+                title = title,
+                createdAt = now,
+                lastModified = now
             )
         )
         if (firstGreeting.isNotBlank() || alternateGreetings.isNotEmpty()) {
@@ -183,9 +195,11 @@ class ChatRepository(private val chatDao: ChatDao) {
                 content = content
             )
         )
-        // touch chat last modified
-        chatDao.getChatById(chatId)?.let {
-            chatDao.updateChat(it.copy(lastModified = System.currentTimeMillis()))
+        // touch chat and character last modified
+        val now = System.currentTimeMillis()
+        chatDao.getChatById(chatId)?.let { chat ->
+            chatDao.updateChat(chat.copy(lastModified = now))
+            characterDao?.updateLastModified(chat.characterId, now)
         }
         MessageSwipeResult(msgId, swipeId)
     }
@@ -200,6 +214,16 @@ class ChatRepository(private val chatDao: ChatDao) {
             )
             val allSwipes = chatDao.getSwipesListForMessage(messageId)
             val newIdx = (allSwipes.size - 1).coerceAtLeast(0)
+
+            // touch chat & character last modified
+            val now = System.currentTimeMillis()
+            chatDao.getMessageById(messageId)?.let { msg ->
+                chatDao.getChatById(msg.chatId)?.let { chat ->
+                    chatDao.updateChat(chat.copy(lastModified = now))
+                    characterDao?.updateLastModified(chat.characterId, now)
+                }
+            }
+
             NewSwipeResult(swipeId, newIdx)
         }
 

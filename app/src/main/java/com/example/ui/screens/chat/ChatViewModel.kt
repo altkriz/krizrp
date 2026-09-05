@@ -128,6 +128,7 @@ class ChatViewModel(
                 characterName = char.name,
                 alternateGreetings = altList
             )
+            characterRepository.touchCharacter(characterId)
             selectChat(newChatId)
         }
     }
@@ -176,6 +177,7 @@ class ChatViewModel(
                     content = text,
                     orderIndex = currentOrder
                 )
+                characterRepository.touchCharacter(char.id)
 
                 // 2. Trigger character response
                 generateCharacterResponse(chat.id, char, userPersona, currentOrder + 1)
@@ -234,6 +236,7 @@ class ChatViewModel(
                         if (newSwipeId > 0) {
                             chatRepository.updateSwipeContent(newSwipeId, accumulated)
                         }
+                        characterRepository.touchCharacter(char.id)
                         _uiState.update {
                             it.copy(
                                 isGenerating = false,
@@ -312,6 +315,7 @@ class ChatViewModel(
                     if (assistantSwipeId > 0) {
                         chatRepository.updateSwipeContent(assistantSwipeId, accumulated)
                     }
+                    characterRepository.touchCharacter(character.id)
                     _uiState.update {
                         it.copy(
                             isGenerating = false,

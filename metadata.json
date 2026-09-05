@@ -1,6 +1,6 @@
 {
   "name": "KrizRP",
-  "description": "AI Roleplay and Character Chat application with Chub.ai character gallery, custom personas, prompts, and multi-backend AI connections.",
+  "description": "AI Roleplay and Character Chat app with Chub.ai card imports, multi-backend AI connections, and built-in Desktop Mode local web companion.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

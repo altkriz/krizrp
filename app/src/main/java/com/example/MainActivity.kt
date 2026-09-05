@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
 
         val db = AppDatabase.getInstance(applicationContext)
         val characterRepository = CharacterRepository(db.characterDao())
-        val chatRepository = ChatRepository(db.chatDao())
+        val chatRepository = ChatRepository(db.chatDao(), db.characterDao())
         val settingsRepository = SettingsRepository(db.settingDao())
         val chubApiClient = ChubApiClient()
         val chubRepository = ChubRepository(

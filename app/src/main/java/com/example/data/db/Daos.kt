@@ -33,6 +33,9 @@ interface CharacterDao {
 
     @Query("DELETE FROM characters WHERE id = :id")
     suspend fun deleteCharacterById(id: Long)
+
+    @Query("UPDATE characters SET lastModified = :timestamp WHERE id = :id")
+    suspend fun updateLastModified(id: Long, timestamp: Long)
 }
 
 @Dao
@@ -54,6 +57,9 @@ interface ChatDao {
 
     @Query("DELETE FROM chat_sessions WHERE id = :chatId")
     suspend fun deleteChatById(chatId: Long)
+
+    @Query("SELECT * FROM chat_messages WHERE id = :id")
+    suspend fun getMessageById(id: Long): ChatMessageEntity?
 
     @Query("SELECT * FROM chat_messages WHERE chatId = :chatId ORDER BY orderIndex ASC, id ASC")
     fun getMessagesForChat(chatId: Long): Flow<List<ChatMessageEntity>>

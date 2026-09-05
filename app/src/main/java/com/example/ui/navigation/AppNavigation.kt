@@ -34,6 +34,7 @@ import com.example.ui.screens.gallery.ChubGalleryScreen
 import com.example.ui.screens.gallery.ChubGalleryViewModel
 import com.example.ui.screens.gallery.ChubGalleryViewModelFactory
 import com.example.ui.screens.personas.UserPersonasScreen
+import com.example.ui.screens.desktop.DesktopModeScreen
 import com.example.ui.screens.logs.CrashLogsScreen
 import com.example.ui.screens.settings.SamplerSettingsScreen
 import com.example.ui.screens.settings.SettingsScreen
@@ -51,6 +52,7 @@ sealed class Screen(val route: String) {
     object Connections : Screen("connections")
     object Sampler : Screen("sampler")
     object Settings : Screen("settings")
+    object DesktopMode : Screen("desktop_mode")
     object CrashLogs : Screen("crash_logs")
     object Gallery : Screen("gallery")
     object AuthorProfile : Screen("author/{authorName}") {
@@ -146,6 +148,39 @@ fun AppNavigation(
                     onClick = {
                         coroutineScope.launch { drawerState.close() }
                         navController.navigate(Screen.Sampler.route)
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                val isServerRunning by com.example.server.DesktopServerManager.isRunning.collectAsState()
+                NavigationDrawerItem(
+                    label = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Text("Desktop Mode")
+                            if (isServerRunning) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "LIVE",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    icon = { Icon(Icons.Default.Laptop, contentDescription = null) },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        navController.navigate(Screen.DesktopMode.route)
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
@@ -312,6 +347,7 @@ fun AppNavigation(
                     onNavigateConnections = { navController.navigate(Screen.Connections.route) },
                     onNavigateSampler = { navController.navigate(Screen.Sampler.route) },
                     onNavigatePersonas = { navController.navigate(Screen.Personas.route) },
+                    onNavigateDesktopMode = { navController.navigate(Screen.DesktopMode.route) },
                     onNavigateLogs = { navController.navigate(Screen.CrashLogs.route) },
                     isDarkTheme = isDarkTheme,
                     onToggleDarkTheme = onToggleDarkTheme
@@ -320,6 +356,12 @@ fun AppNavigation(
 
             composable(Screen.CrashLogs.route) {
                 CrashLogsScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.DesktopMode.route) {
+                DesktopModeScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
